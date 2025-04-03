@@ -5,7 +5,7 @@
 import pytest
 
 
-from free_energy_analysis import free_energy_analysis
+from free_energy_analysis import cluster_analysis
 
 
 @pytest.fixture
@@ -16,6 +16,7 @@ def response():
     """
     # import requests
     # return requests.get('https://github.com/audreyr/cookiecutter-pypackage')
+
 
 
 def test_content(response):
