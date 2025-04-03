@@ -1,8 +1,6 @@
-import sys
-sys.path.append("/global/cfs/cdirs/m4248/xiaoxusr/solvation_scripts/python")
+from free_energy_analysis.colvars_analysis_tool import ColvarsAnalyzer
 import argparse
-import os
-from colvars_analysis_tool import ColvarsAnalyzer
+
 
 # Set up the parameters for the analysis
 def main():

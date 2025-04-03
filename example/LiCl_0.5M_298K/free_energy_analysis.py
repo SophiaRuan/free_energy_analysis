@@ -1,12 +1,8 @@
-import sys
-sys.path.append("/global/cfs/cdirs/m4248/xiaoxusr/solvation_scripts/python")
-
 import argparse
 import os
 import matplotlib.pyplot as plt
 from sea_urchin.sea_urchin import SeaUrchin
-from sea_urchin.plotting.rendering import plot_structures
-from free_energy_tool import ClusterAnalyzer, get_multiple_replica_files, load_bias_potential_data, plot_structures
+from free_energy_analysis.free_energy_tool import ClusterAnalyzer, get_multiple_replica_files, load_bias_potential_data, plot_structures
 
 def main():
     # Set up argument parsing

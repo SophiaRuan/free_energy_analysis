@@ -1,15 +1,9 @@
-import sys
-sys.path.append("/global/cfs/cdirs/m4248/xiaoxusr/solvation_scripts/python")
-
 import argparse
-import os
-import matplotlib.pyplot as plt
 import glob
 import pandas as pd
 
 from sea_urchin.sea_urchin import SeaUrchin
-from sea_urchin.plotting.rendering import plot_structures
-from free_energy_tool import EnergyCorrectionAnalyzer, load_bias_potential_data, plot_structures
+from free_energy_analysis.free_energy_tool import EnergyCorrectionAnalyzer
 
 import MDAnalysis as mda
 def main():
@@ -40,8 +34,8 @@ def main():
     lmp_file = f"{base_path}/01_IDNR/lammps.{T}K.prod.mtd.lammpstrj"
     data_file = f"{base_path}/01_IDNR/lammps.data"
     traj_list = glob.glob("*_IDNR/*lammpsdump")
-    
-    
+
+
     # Initialize analyzer
     analyzer = EnergyCorrectionAnalyzer(base_path, nstrides, data_file, traj_list, T)
 
