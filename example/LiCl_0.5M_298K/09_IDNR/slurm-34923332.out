@@ -1,0 +1,7 @@
+Resetting modules to system default. Reseting $MODULEPATH back to system default. All extra directories will be removed from $MODULEPATH.
+
+The following have been reloaded with a version change:
+  1) cpu/0.17.3b => cpu/0.15.4
+
+LAMMPS dynamics of 0.5M LiCl lammps at 298K
+slurmstepd: error: *** JOB 34923332 ON exp-1-27 CANCELLED AT 2024-11-08T21:09:48 DUE TO TIME LIMIT ***
