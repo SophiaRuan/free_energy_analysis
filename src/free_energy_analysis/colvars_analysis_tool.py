@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm
 import pandas as pd
 from pycolvars import pmf
 from scipy.interpolate import griddata
@@ -26,10 +25,6 @@ class ColvarsAnalyzer:
         - base_dir: The base directory containing subdirectories with simulation data.
         - number_of_cv: Number of collective variables (CVs) to analyze (1, 2, or 3).
         - cv_labels: List of labels for the CVs. Must match the number of CVs.
-        - directories: List of replica directories for multiple replicas Metadynamics
-        - pmf_files: List of potential of mean force files
-        - colvar_files: List of colvar trajectory files that include the colvar values at each time frame
-         and bias potential applied to that timeframe
         """
         self.base_dir = base_dir
         self.number_of_cv = number_of_cv
@@ -115,9 +110,7 @@ class ColvarsAnalyzer:
 
         # Create subplots
         fig, axes = plt.subplots(1, 2, figsize=[20, 8])
-        # Generate a custom color map with white for NaN values
         cmap = plt.get_cmap('viridis').copy()
-        # cmap.set_bad(color='white')  # Set NaN values to appear as white
         # Define color map and set vmin and vmax for consistent scaling
         vmin, vmax = np.nanmin(pmf), np.nanmax(pmf)
 
@@ -125,8 +118,8 @@ class ColvarsAnalyzer:
         im_xy = axes[0].imshow(pmf_xy, extent=(min(x), max(x), min(y), max(y)), origin='lower', aspect='auto', cmap=cmap, vmin=vmin, vmax=vmax)
         cbar = fig.colorbar(im_xy, ax=axes[0])
         cbar.set_label(r'$\Delta G$ [kT]', fontsize=20, fontweight="bold")
-        axes[0].set_xlabel('Li-O CN', fontsize=20, fontweight="bold")
-        axes[0].set_ylabel('Li-Cl CN', fontsize=20, fontweight="bold")
+        axes[0].set_xlabel(f"{labels[0]}", fontsize=20, fontweight="bold")
+        axes[0].set_ylabel(f"{labels[1]}", fontsize=20, fontweight="bold")
         axes[0].set_title('XY Plane Projection', fontsize=20, fontweight="bold")
         axes[0].grid(True)
 
@@ -138,8 +131,8 @@ class ColvarsAnalyzer:
         im_xz = axes[1].imshow(pmf_xz, extent=(min(x), max(x), min(z), max(z)), origin='lower', aspect='auto', cmap=cmap, vmin=vmin, vmax=vmax)
         cbar = fig.colorbar(im_xz, ax=axes[1])
         cbar.set_label(r'$\Delta G$ [kT]', fontsize=20, fontweight="bold")
-        axes[1].set_xlabel('Li-O CN', fontsize=20, fontweight="bold")
-        axes[1].set_ylabel('Li-Li CN', fontsize=20, fontweight="bold")
+        axes[1].set_xlabel(f"{labels[0]}", fontsize=20, fontweight="bold")
+        axes[1].set_ylabel(f"{labels[2]}", fontsize=20, fontweight="bold")
         axes[1].set_title('XZ Plane Projection', fontsize=20, fontweight="bold")
         axes[1].grid(True)
         axes[1].contour(pmf_xz, levels=contour_levels, extent=(min(x), max(x), min(z), max(z)), colors='black', linewidths=0.75)
@@ -157,7 +150,7 @@ class ColvarsAnalyzer:
         for colvar_file in self.colvar_files:
             if os.path.isfile(colvar_file):
                 all_data.append(self.read_data(colvar_file))
-
+        
         # Concatenate all data into one DataFrame
         all_data = pd.concat(all_data)
 
@@ -176,17 +169,17 @@ class ColvarsAnalyzer:
         plt.tight_layout()
         figs.savefig("CV_Histograms.png", bbox_inches="tight")
         plt.close()
-
+    
     def plot_traj_overtime_all(self):
-        colvar_data_all = []
+        colvar_data_all = [] 
         for f in self.colvar_files:
-            if os.path.isfile(f):
+            if os.path.isfile(f): 
                 colvar_data = self.read_data(f)
                 colvar_data_all.append(colvar_data)
             else:
                 colvar_data_all.append(None)
         n = self.number_of_cv
-        figs, axes = plt.subplots(n+1,1, figsize=(15,15))
+        figs, axes = plt.subplots(n+1, 1, figsize=(15, 15))
         axes = axes.flatten()
         # Plot the coordination number over time
         # axes[0].plot(data[0], data[1], label='Coordination Number Li-O')
@@ -200,7 +193,7 @@ class ColvarsAnalyzer:
                     axes[i].legend()
             else:
                 for j, data in enumerate(colvar_data_all):
-                    axes[i].plot(data.iloc[:,0], data.iloc[:,i+1], label=f'Biased potential applied Replica {i+1}')
+                    axes[i].plot(data.iloc[:, 0], data.iloc[:, i+1], label=f'Biased potential applied Replica {i+1}')
                     axes[i].set_xlabel("Time Step (fs)")
                     axes[i].set_ylabel("Biased Potential")
                     axes[i].legend()
@@ -209,6 +202,6 @@ class ColvarsAnalyzer:
         figs.savefig("CV_trajectory.png", bbox_inches="tight")
         plt.close()
 
-
-
-
+       
+                
+                

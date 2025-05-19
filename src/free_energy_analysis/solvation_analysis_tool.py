@@ -1,5 +1,4 @@
 import MDAnalysis as mda
-import MDAnalysis.transformations as trans
 import os
 import json
 import pickle
@@ -16,7 +15,7 @@ class SolvationAnalyzer:
         Parameters:
         - base_data_file: Path to the base LAMMPS data file.
         - directories: List of directories containing trajectory files.
-        - Li_id: ID of the Li atom to analyze.
+        - Li_id: ID of the Li atom to analyze (1 atom).
         - radii: Dictionary of radii for the solvation analysis.
         - step: Step interval for processing the trajectories.
         """
@@ -50,6 +49,7 @@ class SolvationAnalyzer:
             u.trajectory.add_transformations(transform)
 
             # Atom selection
+            # Need to change the atom selection based on the system
             O = u.select_atoms("type 1")
             Li = u.select_atoms("type 3")
             Cl = u.select_atoms("type 4")

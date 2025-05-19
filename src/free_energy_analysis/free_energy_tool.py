@@ -9,8 +9,6 @@ from tqdm import tqdm
 import os
 import glob
 import pickle
-
-import MDAnalysis as mda
 import re
 
 def get_multiple_replica_files(base_path):
@@ -99,7 +97,6 @@ class ClusterAnalyzer:
                 if any(idx in clu.info["ori_idx"] for idx in self.target_atoms_ix):
                     target_atoms_clusters.append(clu)
         self.clusters = obj.clusters if target_atoms_ix is None else target_atoms_clusters
-    ### Methods for total_cluster_data Handling ###
     
     def calculate_total_cluster_data(self):
         """Calculate the total_cluster_data by extracting bias potentials for all formulas."""
