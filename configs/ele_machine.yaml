@@ -1,0 +1,9 @@
+# configuration file for electrolyte machine to extract structures
+trajectory: "traj.lammpstrj"
+topology: "data.lammps"
+solute_atoms: ["Li"]
+solvent_atoms: ["O", "H"]
+cv_type: "coordination"
+bias_format: "colvars"
+temperature: 300
+# cluster_method: "dbscan"
