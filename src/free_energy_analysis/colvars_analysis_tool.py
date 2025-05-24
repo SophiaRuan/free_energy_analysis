@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from pycolvars import pmf
 from scipy.interpolate import griddata
-from typing import List
+
 
 
 plt.rcParams.update({
@@ -46,15 +46,16 @@ class ColvarsAnalyzer:
         self.cv_labels = cv_labels or [f"CV_{i + 1}" for i in range(number_of_cv)]
         if len(self.cv_labels) != self.number_of_cv:
             raise ValueError("Length of cv_labels must match number_of_cv")
-
         self.directories = [os.path.join(base_dir, f"{i:02}_IDNR") for i in replica_range]
-        self.pmf_files = [os.path.join(d, pmf_filename) for d in self.directories]
-        self.colvar_files = [os.path.join(d, colvar_filename) for d in self.directories]
+        self.pmf_filename = pmf_filename
+        self.colvar_filename = colvar_filename
+        self.pmf_files = [os.path.join(d, pmf_filename) for d in self.directories] # they are all the same pmf files
+        self.colvar_files = [os.path.join(d, colvar_filename) for d in self.directories] # colvar trajectory files are different among replicas
 
     @staticmethod
     def read_data(path):
         """Read a data file and handle any trailing null rows."""
-        data = pd.read_csv(path, comment='#', sep='\s+', header=None)
+        data = pd.read_csv(path, comment='#', sep=r'\s+', header=None)
         if data.iloc[-1].isnull().any():
             data = data.iloc[:-1]
         return data
@@ -87,16 +88,40 @@ class ColvarsAnalyzer:
 
     def _plot_pmf_2cv(self):
         """Plot PMF for 2 CVs."""
-        obj = pmf.MultipleReplica(pmf_path=self.base_dir, pmf_name="colvar.out.pmf")
-        obj.plot_colvars_data(con_steps=10)
-        plt.title("Potential of Mean Force (2 CV)")
+        data = self.read_data(self.pmf_files[0])
+        print(data)
+        x, y, pmf_vals = data.iloc[:, 0].values, data.iloc[:, 1].values, data.iloc[:, 2].values
+
+        grid_x = np.linspace(np.min(x), np.max(x), 100)
+        grid_y = np.linspace(np.min(y), np.max(y), 100)
+        X, Y = np.meshgrid(grid_x, grid_y)
+
+        # Interpolate PMF values onto grid
+        Z = griddata((x, y), pmf_vals, (X, Y), method='cubic')
+
+        plt.figure(figsize=(8, 6))
+        contour = plt.contourf(X, Y, Z, levels=30, cmap='viridis')
+        cbar = plt.colorbar(contour)
+        cbar.set_label("Free Energy (kBT)")
+
+        plt.xlabel(self.cv_labels[0])
+        plt.ylabel(self.cv_labels[1])
+        plt.title("Potential of Mean Force (2 CVs)")
+        plt.grid(True)
         plt.savefig("PMF_2CV.png", bbox_inches="tight")
         plt.close()
+        # print(self.base_dir)
+        # print(self.pmf_filename)
+        # obj = pmf.MultipleReplica(pmf_path=self.base_dir, pmf_name=self.pmf_filename)
+        # obj.plot_colvars_data(con_steps=10)
+        # plt.title("Potential of Mean Force (2 CV)")
+        # plt.savefig("PMF_2CV.png", bbox_inches="tight")
+        # plt.close()
 
     def _plot_pmf_3cv(self):
         """Generate 3D PMF projections for 3 CVs and save the plot."""
-        data = np.loadtxt(self.pmf_files[0])
-        x, y, z, pmf_vals = data[:, 0], data[:, 1], data[:, 2], data[:, 3]
+        data = self.read_data(self.pmf_files[0])
+        x, y, z, pmf_vals = data.iloc[:, 0].values, data.iloc[:, 1].values, data.iloc[:, 2].values, data.iloc[:, 3].values
         grid_x, grid_y, grid_z = np.linspace(min(x), max(x), 100), np.linspace(min(y), max(y), 100), np.linspace(min(z), max(z), 100)
         pmf_xy = griddata((x, y), pmf_vals, (grid_x[None, :], grid_y[:, None]), method='cubic')
         pmf_xz = griddata((x, z), pmf_vals, (grid_x[None, :], grid_z[:, None]), method='cubic')
@@ -128,7 +153,6 @@ class ColvarsAnalyzer:
         all_data = pd.concat(all_data)
 
         figs, axes = plt.subplots(self.number_of_cv, 1, figsize=(10, self.number_of_cv * 5))  # Create subplots
-        axes = axes.flatten()
         if self.number_of_cv == 1:
             axes = [axes]
 
