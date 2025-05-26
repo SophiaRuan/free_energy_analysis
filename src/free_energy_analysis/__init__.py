@@ -1,4 +1,4 @@
-"""Top-level package for free_energy_analysis."""
+"""A package for free_energy_analysis for solvation structures."""
 
 __author__ = """Xiaoxu Ruan"""
 __email__ = 'xiruan@ucsd.edu'
