@@ -42,12 +42,11 @@ def get_multiple_replica_files(base_path):
 def load_bias_potential_data(bias_potential_files):
     """Load bias potential data from multiple files into a single DataFrame."""
     bias_pot_df = pd.DataFrame()
-    df0 = pd.read_csv(bias_potential_files[0][0], sep="\s+", comment="#")
-    print(df0.columns)
-    if len(df0.columns)==4:
-        col_names = ["step", "coord_Li_O", "coord_Li_Cl", "E_metadyn_d1"]
+    df = pd.read_csv(bias_potential_files[0][0], sep="\s+", comment="#")
+    if len(df.columns)==4:
+        col_names = ["step", "coord1", "coord2", "bias_potential"]
     else:
-        col_names = ["step", "coord_Li_O", "coord_Li_Cl", "coord_Li", "E_metadyn_d1"]
+        col_names = ["step", "coord1", "coord2", "coord3", "bias_potential"]
 
     for i, file in enumerate(bias_potential_files):
         df = pd.read_csv(file[0], sep="\s+", comment="#", names=col_names)
@@ -87,7 +86,7 @@ class ClusterAnalyzer:
         self.geometry_pickle_data = geometry_pickle_data
         self.temperature = temperature
         self.num_formulas = num_formulas
-        self.k_b = 1.380649e-23  # Boltzmann constant (in kbT units)
+        self.k_b = 1.380649e-23  # Boltzmann constant (in J)
         self.kbT = self.k_b * self.temperature
         self.convert_kcal_per_mol_J = 4184 / 6.02e23
         self.convert_kcal_per_mol_kbT = self.convert_kcal_per_mol_J / self.kbT

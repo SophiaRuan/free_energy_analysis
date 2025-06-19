@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from pycolvars import pmf
 from scipy.interpolate import griddata
 
 
