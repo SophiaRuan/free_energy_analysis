@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from scipy.interpolate import interp1d
 
 import os
 import glob
@@ -120,9 +121,10 @@ class ClusterAnalyzer:
 
     def save_total_cluster_data(self, filename, output_directory="./"):
         """Save the total_cluster_data to a pickle file."""
-        with open(os.path.join(output_directory, filename), 'wb') as f:
+        path = os.path.join(output_directory, filename)
+        with open(path, 'wb') as f:
             pickle.dump(self.total_cluster_data, f)
-        print(f"Total cluster data saved to {self.total_cluster_data}.")
+        print(f"Total cluster data saved to {path}.")
 
     def load_total_cluster_data(self, path_to_file):
         """Load the total_cluster_data from a pickle file."""
@@ -295,115 +297,223 @@ def logsumexp(x):
     return c + np.log(np.sum(np.exp(x-c)))
 
 
-class EnergyCorrectionAnalyzer():
-    def __init__(self, base_path, nstrides, data_file, traj_list, T):
+class EnergyCorrectionAnalyzer:
+    def __init__(
+        self,
+        base_path: str,
+        nstrides: int,
+        data_file: str,
+        traj_list: list[str],
+        T: float = 298,
+        activity_model: callable = None,
+        activity_table: list[tuple[float, float]] = None,
+        central_atom_id: int = None,
+        solute_atoms_per_molecule: int = 2,
+        solute_selector: callable = None,
+        non_free_selector: callable = None,
+        all_solvents_selector: callable = None
+    ):
+        """
+        Initialize the analyzer with simulation parameters.
+
+        Parameters:
+        - base_path: base directory of data
+        - nstrides: stride interval for reading trajectory
+        - data_file: cluster data file
+        - traj_list: list of MDAnalysis.Universe object paths or labels
+        - T: temperature in K
+        - activity_model: optional user-defined function, activity = f(conc)
+        Default activity model is for water in aqueous LiCl at 298 K (if none is provided):
+            activity = -0.0444 * conc + 1.0014
+            Example
+            def linear_activity(conc: float, solubility) -> float:
+                def get_activity(conc):
+                    return -0.0444*conc + 1.0014 # 298K water activity in LiCl aqueous solution
+                    return -0.0507*conc + 1 # 283K water activity in LiCl aqueous solution
+                    return -0.0422*conc + 1 # 313K water activity in LiCl aqueous solution
+
+                activity = get_activity(conc) if conc <= solubility else get_activity(solubility)
+                return activity
+
+        - activity_table: optional table for activity vs. concentration (will be interpolated)
+        - central_atom_id: ID of ion (e.g., Li+) around which to define local environment
+        - solute_atoms_per_molecule: number of atoms per solute molecule (default binary salt = 2)
+        - solute_selector: selects solute atoms around center
+        - non_free_selector: selects target bound solvent residues
+        - all_solvents_selector: selects all solvent residues around center
+        Selector functions must take the form:
+            def selector(universe, central_atom_id: int, distance: float) -> AtomGroup:
+                return universe.select_atoms("your selection string")
+
+        Example selectors for aqueous LiCl system:
+
+            # select all the solute species around center species
+            def solute_selector(u, center_species_id, distance):
+                # 3 and 4 are Li and Cl
+                return u.select_atoms(f"byres (around {d} (id {center_species_id}) and (type 3 or type 4))")
+
+            # select all the non free water around center species
+            def non_free_selector(u, center_species_id, distance):
+                # O around Li and H around Cl are both considered bound (not free) water!!!
+                return u.select_atoms(
+                    f"byres ((around {distance} (id {center_species_id})) and ((type 1 and around 2.65 (type 3)) or (type 2 and around 2.95 (type 4))))"
+                )
+
+            # select all solvents around center species (there can be solvents other than water)
+            def all_solvents_selector(u, center_species_id, distance):
+                return u.select_atoms(f"byres ((type 1 or type 2) and (around {distance} (id {center_species_id})))}")
+        """
+
         self.base_path = base_path
         self.nstrides = nstrides
         self.data_file = data_file
         self.traj_list = traj_list
         self.T = T
+        self.central_atom_id = central_atom_id
+        self.solute_atoms_per_molecule: int = solute_atoms_per_molecule
+        self.solute_selector = solute_selector
+        self.non_free_selector = non_free_selector
+        self.all_solvents_selector = all_solvents_selector
+
+        # If activity table is given, interpolate it
+        if activity_model:
+            self.activity_model = activity_model
+        elif activity_table:
+            conc_vals, activity_vals = zip(*activity_table)
+            self.activity_model = interp1d(conc_vals, activity_vals, kind='linear', fill_value='extrapolate')
+         else:
+            self.activity_model = EnergyCorrectionAnalyzer.default_activity_model
 
     @staticmethod
-    def count_oxygen_atoms(formula):
-        """Count the number of oxygen atoms in a chemical formula."""
-        oxygen_matches = re.findall(r'O(\d*)', formula)
-        oxygen_count = 0
-        for match in oxygen_matches:
-            oxygen_count += int(match) if match else 1
-        return oxygen_count
+    def default_activity_model(conc: float) -> float:
+        """Default linear activity model for water at 298 K."""
+        return max(-0.0444 * conc + 1.0014, 0.01)
 
-    def calculate_free_water_fraction(self, u_list, distance_range=range(12, 13), Li_id=2947, O_radii=2.65, H_radii=2.95):
-        """Calculate the local free water mole fraction."""
-        x_free_water_all_list = []
+    @staticmethod
+    def count_element(formula, element="O"):
+        """Count the number of atoms in a chemical formula."""
+        matches = re.findall(fr'{element}(\d*)', formula)
+        return sum(int(m) if m else 1 for m in matches)
+
+    def calculate_free_solvent_fraction(self, u_list: list, distance_range: range = range(12, 13)) -> list[float]:
+        x_free_list = []
+
         for x in tqdm(distance_range):
-            x_free_water_mean_list = []
+            x_free_means = []
             for u in u_list:
-                x_free_water_list = []
-                water_selection = f"byres ((around {x} (id {Li_id})) and ((type 1) or (type 2)))"
-                salt_selection = f"byres ((around {x} (id {Li_id})) and ((type 3) or (type 4)))"
-                non_free_water_selection = (
-                    f"byres ((around {x} (id {Li_id})) and (((type 1) and (around {O_radii} (type 3))) or ((type 2) and (around {H_radii} (type 4)))))"
-                )
+                x_frees = []
+
                 for ts in u.trajectory[::20]:
-                    water_atoms = u.select_atoms(water_selection)
-                    salt_atoms = u.select_atoms(salt_selection)
-                    non_free_water_atoms = u.select_atoms(non_free_water_selection)
-                    non_free_water = len(non_free_water_atoms) / 3
-                    water = len(water_atoms) / 3
-                    salt = len(salt_atoms) / 2
+                    if not self.solute_selector or not self.non_free_selector or not self.all_solvents_selector:
+                        raise ValueError(
+                            "All selector functions (solute, non-free, all_solvents) must be provided.")
+
+                    num_all_solutes = len(self.solute_selector(u, self.central_atom_id, x)) / self.solute_atoms_per_molecule
+                    num_non_free_solvent = len(set(self.non_free_selector(u, self.central_atom_id, x).residues))
+                    num_all_solvents = len(set(self.all_solvents_selector(u, self.central_atom_id, x).residues))
+
                     try:
-                        x_free_water = (water - non_free_water) / (water + salt)
-                        x_free_water_list.append(x_free_water)
-                    except:
-                        pass
+                        x_free = (num_all_solvents - num_non_free_solvent) / (num_all_solvents + num_all_solutes)
+                        x_frees.append(x_free)
+                    except ZeroDivisionError:
+                        continue
 
-                x_free_water_mean_list.append(np.mean(x_free_water_list))
-                print(f"{water=}, {non_free_water=}, {salt=}")
-            x_free_water_all_list.append(np.mean(x_free_water_mean_list))
+                if x_frees:
+                    x_free_means.append(np.mean(x_frees))
 
-        return x_free_water_all_list
+            x_free_list.append(np.mean(x_free_means))
+        return x_free_list
 
-    def get_activity_from_conc(self, conc):
-        T = self.T
-        def get_activity(conc):
-            if T==298:
-                return -0.0444*conc + 1.0014
-            elif T==283:
-                return -0.0507*conc + 1
-            elif T==313:
-                return -0.0422*conc + 1
-        if T==298:
-            solubility = 20
-        elif T==283:
-            solubility = 17.5
-        elif T==313:
-            solubility = 21
-        if conc <= solubility:
-            return get_activity(conc)
-        else:
-            return get_activity(conc=solubility)
+    def get_activity_from_conc(self, conc: float, solubility: float) -> float:
+        """Return activity coefficient from model or table."""
+        if not self.activity_model:
+            raise ValueError("No activity model or table provided.")
 
-    def correct_free_energy(self, df, x_free_water_all_list, conc):
-        """Apply a correction to the free energy based on the local free water fraction."""
-        x_bulk = 1
-        activity = self.get_activity_from_conc(conc=conc)
-        print(f"{activity=}")
-        print(f"free_water_mole_fraction={x_free_water_all_list[-1]}")
-        delta_mu = np.log(x_free_water_all_list[-1] * activity / x_bulk)
-        df_corrected = df.copy()
-        df_corrected["N_oxygen"] = [self.count_oxygen_atoms(f) for f in df_corrected["formula"]]
-        df_corrected["energy_corrected"] = (
-            df_corrected["energy"] - np.array(df_corrected["N_oxygen"]) * delta_mu
-        )
-        # Normalize energy after energy correction
-        energy_corrected = df_corrected["energy_corrected"]
-        probability_corrected = np.exp(-1 * energy_corrected)
-        df_corrected["probability_normalized"] = probability_corrected / np.sum(probability_corrected)
-        df_corrected["energy_normalized"] = -np.log(df_corrected["probability_normalized"])
-        return df_corrected.sort_values(["energy_normalized"], ascending=True)
+        return float(self.activity_model(conc)) if conc <= solubility else float(self.activity_model(solubility))
+
+    # @staticmethod
+    # def correct_free_energy(
+    #     df: pd.DataFrame,
+    #     x_free_list: list[float],
+    #     conc: float,
+    #     solubility: float,
+    #     element: str = 'O',
+    #     activity_model: callable = None
+    # ) -> pd.DataFrame:
+    #     """
+    #     Apply correction using a single solvent type.
+    #
+    #     Parameters:
+    #     - df: input DataFrame
+    #     - x_free_list: list of free solvent fractions
+    #     - conc: solute concentration
+    #     - solubility: solubility limit
+    #     - element: atom type to count (e.g., 'O')
+    #     - activity_model: optional activity model callable (default water model used if None)
+    #     """
+    #     x_bulk = 1.0
+    #     activity_model = activity_model or EnergyCorrectionAnalyzer.default_activity_model
+    #     activity = activity_model(conc) if conc <= solubility else activity_model(solubility)
+    #     delta_mu = np.log(x_free_list[-1] * activity / x_bulk)
+    #
+    #     df = df.copy()
+    #     df["N_target_atoms"] = [EnergyCorrectionAnalyzer.count_element(f, element=element) for f in df["formula"]]
+    #     df["energy_corrected"] = df["energy"] - df["N_target_atoms"] * delta_mu
+    #     df["probability_normalized"] = np.exp(-df["energy_corrected"])
+    #     df["probability_normalized"] /= np.sum(df["probability_normalized"])
+    #     df["energy_normalized"] = -np.log(df["probability_normalized"])
+    #     return df.sort_values("energy_normalized")
+
+    @staticmethod
+    def correct_free_energy_multi_solvent(df: pd.DataFrame, corrections: list[dict]) -> pd.DataFrame:
+        """
+        Apply one or multiple solvent-based corrections.
+
+        Parameters:
+        - df: input DataFrame
+        - corrections: list of dicts, each with:
+            - 'x_free': float
+            - 'activity': float
+            - 'element': str
+
+        Example usage:
+        analyzer_O = EnergyCorrectionAnalyzer(...)
+        x_free_1 = analyzer_O.calculate_free_solvent_fraction([...])
+        df_corrected = EnergyCorrectionAnalyzer.correct_free_energy_multi_solvent(df, [
+        {'x_free': x_free_1[-1], 'activity': analyzer_O.get_activity_from_conc(conc=10, solubility=20), 'element': 'O'}
+        ])
+
+        """
+        df = df.copy()
+        total_delta_mu = np.zeros(len(df))
+
+        for corr in corrections:
+            x_free = corr['x_free']
+            activity = corr['activity']
+            element = corr['element']
+            delta_mu = np.log(x_free * activity)
+            n_atoms = np.array([EnergyCorrectionAnalyzer.count_element(f, element) for f in df["formula"]])
+            total_delta_mu += n_atoms * delta_mu
+
+        df["energy_corrected"] = df["energy"] - total_delta_mu
+        df["probability_normalized"] = np.exp(-df["energy_corrected"])
+        df["probability_normalized"] /= np.sum(df["probability_normalized"])
+        df["energy_normalized"] = -np.log(df["probability_normalized"])
+        return df.sort_values("energy_normalized")
 
     def plot_corrected_free_energy(self, df_corrected_sorted):
-        """Plot the corrected free energy."""
-        plt.plot(df_corrected_sorted["formula"][:5], df_corrected_sorted["energy_normalized"][:5])
+        top = df_corrected_sorted.head(5)
+
+        plt.plot(top["formula"], top["energy_normalized"])
         plt.ylabel("Corrected Free Energy (kbT)")
         plt.xlabel("Formula")
         plt.savefig("corrected_free_energy.png", bbox_inches="tight")
         plt.close()
 
-        plt.plot(df_corrected_sorted["formula"][:5], df_corrected_sorted["probability_normalized"][:5])
+        plt.plot(top["formula"], top["probability_normalized"])
         plt.ylabel("Corrected Probability")
         plt.xlabel("Formula")
         plt.savefig("corrected_probability.png", bbox_inches="tight")
         plt.close()
 
-    def visualize_top_clusters(self, df_corrected_sorted, obj, n_top=5):
-        """Visualize the top clusters based on corrected free energy."""
-        for i, f in enumerate(df_corrected_sorted["formula"][:n_top]):
-            clusters = obj.get_cluster_with_formula(f)
-            try:
-                plot_structures(clusters[:6])
-                plt.savefig(f"formula_corrected_{i}.png", bbox_inches="tight")
-                plt.close()
-            except Exception as e:
-                print(f"Error plotting structure for formula {f}: {e}")
 
