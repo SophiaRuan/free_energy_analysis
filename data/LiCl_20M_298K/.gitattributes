@@ -1,3 +1,4 @@
 *lammpsdump filter=lfs diff=lfs merge=lfs -text
 *lammps filter=lfs diff=lfs merge=lfs -text
 *lammpstrj filter=lfs diff=lfs merge=lfs -text
+*.traj filter=lfs diff=lfs merge=lfs -text
