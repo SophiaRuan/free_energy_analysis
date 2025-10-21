@@ -1,7 +1,7 @@
 import argparse
 import os
 import matplotlib.pyplot as plt
-from sea_urchin.sea_urchin import SeaUrchin
+from sea_urchin import SeaUrchin
 from free_energy_analysis.free_energy_tool import ClusterAnalyzer, get_multiple_replica_files, load_bias_potential_data, plot_structures
 
 def main():
