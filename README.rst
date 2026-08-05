@@ -207,6 +207,18 @@ implements:
      doi     = {10.1063/5.0322052}
    }
 
+Contributors
+------------
+
+* **Xiaoxu Ruan** — original author; developed the SCOPE workflow and
+  analysis scripts this package is built on, and led the accompanying
+  paper (see Citation above).
+* **Mary Zhao** (this fork) — editing and further refinement:
+  environment setup, cross-platform documentation, and bug fixes.
+
+  *All glory to God and our Lord Jesus Christ, without whom none of
+  this would be possible.* — Mary Zhao
+
 Credits
 -------
 
