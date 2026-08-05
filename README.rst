@@ -2,47 +2,101 @@
 free_energy_analysis
 ====================
 
+Free-energy analysis toolkit for solvation microstates sampled from
+metadynamics simulations of concentrated electrolytes. It implements the
+free-energy analysis and finite-size correction stages of **SCOPE**
+(Solvation Characterization via Optimized Probability Ensemble averaging),
+the workflow introduced in:
 
-.. image:: https://img.shields.io/pypi/v/free_energy_analysis.svg
-        :target: https://pypi.python.org/pypi/free_energy_analysis
-
-.. image:: https://img.shields.io/travis/SophiaRuan/free_energy_analysis.svg
-        :target: https://travis-ci.com/SophiaRuan/free_energy_analysis
-
-.. image:: https://readthedocs.org/projects/free-energy-analysis/badge/?version=latest
-        :target: https://free-energy-analysis.readthedocs.io/en/latest/?version=latest
-        :alt: Documentation Status
-
-
-
-
-Python Boilerplate contains all the boilerplate you need to create a Python package.
-
+    Xiaoxu Ruan, Fabrice Roncoroni, David Prendergast, and Tod A. Pascal,
+    "Practical considerations for finite concentration molecular dynamics
+    simulations," *J. Chem. Phys.* **165**, 044111 (2026).
+    https://doi.org/10.1063/5.0322052
 
 * Free software: MIT license
-* Documentation: https://free-energy-analysis.readthedocs.io.
+* Paper: https://doi.org/10.1063/5.0322052
 
+What this repo does
+--------------------
 
-Features
---------
+Understanding how ions organize in a concentrated electrolyte — whether
+they stay fully hydrated, pair up, or aggregate toward precipitation —
+requires more than averaged structural metrics like RDFs or coordination
+numbers, which blur exactly the rare, high-concentration configurations
+that control phase behavior. SCOPE addresses this by treating each
+distinct solvation geometry around a tagged ion as a discrete
+**microstate**, and reconstructing the true equilibrium probability (and
+therefore free energy) of every microstate from biased metadynamics
+trajectories.
 
-* TODO
+This package covers the back half of that pipeline — everything from
+"I have raw LAMMPS/Colvars trajectories from a metadynamics run" to
+"here is the corrected free-energy ranking of solvation microstates."
+Concretely, ``scripts/analysis.sh`` runs three stages in sequence:
+
+1. **Colvars analysis** (``colvars_analyzer_script.py``) — sanity-checks
+   the metadynamics sampling itself: plots the collective-variable (CV)
+   trajectories, histograms, and potential-of-mean-force (PMF) surface
+   across all replica walkers, so you can confirm the bias is actually
+   exploring the intended coordination-number space before trusting
+   anything downstream.
+2. **Free energy analysis** (``free_energy_analysis_script.py``) —
+   reconstructs solvation clusters around a tagged ion from the raw
+   trajectory (via the `sea_urchin`_ clustering library), reweights the
+   biased trajectory frames to recover unbiased microstate probabilities
+   (Eq. 5 of the paper), and ranks each distinct cluster formula
+   (e.g. ``Li[H2O]4``, ``LiCl[H2O]3``) by its probability-derived free
+   energy (Eq. 4).
+3. **Free energy correction** (``free_energy_correction_script.py``) —
+   applies the water activity/availability-based chemical-potential
+   correction (Eqs. 6–9) that accounts for the limited free-water
+   reservoir in a finite simulation box, which would otherwise
+   artificially stabilize oversized clusters. This is what lets the
+   corrected free-energy spectrum line up with real solubility limits
+   instead of a simulation-box artifact.
+
+Who this is for
+----------------
+
+If you're studying speciation, ion pairing, or precipitation onset in
+concentrated aqueous or non-aqueous electrolytes — not just LiCl, the
+method generalizes to any system where a tagged solute's local
+coordination environment is the quantity of interest — this package
+gives you a working, reusable implementation of the reweighting and
+finite-size correction math from the paper, rather than having to
+re-derive Eqs. 4–9 from scratch. It expects metadynamics trajectories
+biased on coordination-number collective variables (via LAMMPS' Colvars
+module) as input; setting up and running those simulations themselves is
+covered by the companion `solvation_spectra`_ repository (see below).
+
+**Related repositories**
+
+* `solvation_spectra`_ — the full, original SCOPE workflow this package
+  is derived from: classical MD and metadynamics job submission scripts
+  in addition to the same analysis stages. This is the repository cited
+  in the paper's Data Availability statement (published as
+  ``atlas-nano/solvation_spectra``). Use it if you need the simulation
+  setup/submission side too, not just analysis of trajectories you
+  already have.
+* `sea_urchin`_ — the underlying library for extracting and clustering
+  local atomic arrangements from MD trajectories (Roncoroni et al.,
+  *Phys. Chem. Chem. Phys.* 2023), used internally by the free-energy
+  analysis stage here.
+
+.. _solvation_spectra: https://github.com/atlas-nano/solvation_spectra
+.. _sea_urchin: https://gitlab.com/electrolyte-machine/sea_urchin
 
 Usage
 -----
 
-This package runs a three-stage free energy analysis pipeline over LAMMPS
-metadynamics trajectories (``data/<system>/<NN_IDNR>/lammps.*.lammpstrj``):
-
-1. ``colvars_analyzer_script.py`` — analyzes collective variables (CVs)
-2. ``free_energy_analysis_script.py`` — computes the free energy surface
-3. ``free_energy_correction_script.py`` — applies finite-size/concentration
-   corrections
-
-``scripts/analysis.sh`` runs all three in sequence and moves the resulting
-plots, CSVs, pickles, and logs into ``data/<system>/results/``. Edit the
-variables at the top of the script (``BASE_PATH``, ``LI_INDEX``,
-``NUMBER_OF_CV``, radii, temperature, etc.) for your system before running.
+Trajectories are expected at
+``data/<system>/<NN_IDNR>/lammps.*.lammpstrj`` (one subdirectory per
+metadynamics replica walker). ``scripts/analysis.sh`` runs the three
+stages described above in sequence and moves the resulting plots, CSVs,
+pickles, and logs into ``data/<system>/results/``. Edit the variables at
+the top of the script (``BASE_PATH``, ``LI_INDEX``, ``NUMBER_OF_CV``,
+radii, temperature, ``SKIP_FRAMES``, etc.) for your system before
+running.
 
 **Linux — verified working (e.g. HPC clusters like SDSC Expanse)**
 
@@ -132,6 +186,26 @@ cmd.exe. Use **WSL2** (Windows Subsystem for Linux):
 
 Git Bash can run the script syntactically, but conda activation and file
 paths behave differently there, so WSL2 is recommended over Git Bash.
+
+Citation
+--------
+
+If this code is useful for your research, please cite the paper it
+implements:
+
+.. code-block:: bibtex
+
+   @article{ruan2026practical,
+     title   = {Practical considerations for finite concentration
+                molecular dynamics simulations},
+     author  = {Ruan, Xiaoxu and Roncoroni, Fabrice and Prendergast, David
+                and Pascal, Tod A.},
+     journal = {The Journal of Chemical Physics},
+     volume  = {165},
+     pages   = {044111},
+     year    = {2026},
+     doi     = {10.1063/5.0322052}
+   }
 
 Credits
 -------
