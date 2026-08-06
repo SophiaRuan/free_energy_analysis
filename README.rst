@@ -86,6 +86,58 @@ covered by the companion `solvation_spectra`_ repository (see below).
 .. _solvation_spectra: https://github.com/atlas-nano/solvation_spectra
 .. _sea_urchin: https://gitlab.com/electrolyte-machine/sea_urchin
 
+Fork of Xiaoxu Ruan's original repository
+------------------------------------------
+
+This is a fork of `Xiaoxu Ruan's original free_energy_analysis
+repository`_ — the code exactly as used to produce the paper's results,
+built around one hardcoded system (0.5 M LiCl at 298 K). This fork's goal
+is different: turn that same pipeline into a tool other people can point
+at their own electrolyte systems, not just reproduce the paper's LiCl run.
+
+.. _Xiaoxu Ruan's original free_energy_analysis repository: https://github.com/SophiaRuan/free_energy_analysis
+
+**What's been generalized so far**
+
+* State-point parameters (concentration, temperature, radii, stride/skip
+  counts) are environment-variable overrides on ``analysis.sh`` instead of
+  hardcoded, and ``scripts/sweep_analysis.sh`` (new) batches a run across
+  every concentration/temperature combination that has data on disk.
+* The tagged ion's LAMMPS atom index (``LI_INDEX``) is auto-derived from
+  ``colvar.lmp`` instead of requiring a hand-maintained, per-concentration
+  lookup table that had to be kept in sync by hand.
+* Solute/solvent species names and the LAMMPS numeric atom-type mapping
+  used by the finite-size correction moved out of hardcoded Python
+  (``"Li"``, ``"Cl"``, ``type 1``–``type 4``) and into
+  ``configs/ele_machine.yaml``, loaded through a new ``config.py``. A new
+  salt/solvent combination is a new config file, not a source-code edit.
+* Cross-platform install docs (verified Linux/HPC path, best-effort
+  macOS/Windows guidance, a memory-constrained install path for capped HPC
+  login nodes) and a portable conda-activation fallback that checks for
+  the actual ``conda activate`` shell function rather than assuming one
+  specific install path or that the binary alone being on ``PATH`` is
+  sufficient.
+* A real, passing pytest suite for the pieces above that don't require HPC
+  trajectory data to test — the original test file imported a module that
+  never existed in this package and had never actually run.
+
+**What's intentionally not generalized (yet)**
+
+* The water-activity/solubility values used in the finite-size correction
+  (``EnergyCorrectionAnalyzer._ACTIVITY_FIT_BY_TEMPERATURE``) are
+  experimentally-fit numbers for LiCl(aq) at 283/298/313 K from the paper
+  — a different salt or temperature needs its own fit from real
+  experimental data, not a config change. Running the correction stage
+  without one now raises a clear error instead of failing silently.
+* The ``--O_radii``/``--H_radii``/``--Cl_radii`` CLI flag *names* still
+  read LiCl-specific, even though what they map onto is config-driven
+  underneath.
+* ``src/free_energy_analysis/solvation_analysis_tool.py`` is dead code
+  (nothing imports it) and hasn't been touched either way.
+
+See "Adapting to a different salt or solute" under Usage_ below for how to
+point this at a non-LiCl system today.
+
 Usage
 -----
 
