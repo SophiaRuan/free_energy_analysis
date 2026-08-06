@@ -40,9 +40,16 @@ def main():
             cfg["anion_symbol"]: Cl_radii,
         }
 
-        # Reconstruction settings
+        # Reconstruction settings. sea_urchin keys reconstruct["type"] by
+        # LAMMPS numeric atom type (see su_cluster.find_neighbors) - any
+        # neighbor atom of this type gets its whole connected molecule
+        # pulled into the cluster. This must be the water-oxygen type from
+        # this system's own config, not a literal 1: a system where water_o
+        # isn't type 1 would otherwise silently get NO molecule
+        # reconstruction at all (sea_urchin swallows the KeyError and
+        # treats it as "nothing to reconstruct", with no error raised).
         reconstruct = {
-            "type": {1: "molecules"},
+            "type": {cfg["lammps_atom_types"]["water_o"]: "molecules"},
             "depth": 1,
             "inverse": False,
             "merge": True,

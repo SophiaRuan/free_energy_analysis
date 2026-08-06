@@ -135,6 +135,16 @@ at their own electrolyte systems, not just reproduce the paper's LiCl run.
   of the ``cv_labels`` you passed it — so even a correctly-configured
   non-LiCl run produced a mislabeled plot. It now builds the title from
   the actual labels in use.
+* Fixed a deeper, silent-failure bug in ``free_energy_analysis_script.py``:
+  the ``reconstruct`` settings passed to `sea_urchin`_ hardcoded
+  ``{"type": {1: "molecules"}}`` — sea_urchin keys that dict by LAMMPS
+  numeric atom type, and ``1`` happens to be this system's water-oxygen
+  type. For a config where ``water_o`` isn't type 1, sea_urchin's internal
+  lookup would silently fail (caught by a bare ``except``, no error
+  raised) and skip water-molecule reconstruction entirely, with nothing
+  telling you your clusters were wrong. Now built from
+  ``cfg["lammps_atom_types"]["water_o"]``, so it always matches whatever
+  the config actually declares.
 * Cross-platform install docs (verified Linux/HPC path, best-effort
   macOS/Windows guidance, a memory-constrained install path for capped HPC
   login nodes) and a portable conda-activation fallback that checks for
