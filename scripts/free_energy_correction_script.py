@@ -3,6 +3,7 @@ import glob
 import pandas as pd
 
 from sea_urchin.sea_urchin import SeaUrchin
+from free_energy_analysis.config import load_system_config
 from free_energy_analysis.free_energy_tool import EnergyCorrectionAnalyzer
 
 import MDAnalysis as mda
@@ -17,6 +18,7 @@ def main():
     parser.add_argument("--Li_index", type=int, required=True, help="Index of lithium")
     parser.add_argument("--T", type=int, required=True, help="Temperature in Kelvin")
     parser.add_argument("--conc", type=float, required=True, help="Concentration in M/L")
+    parser.add_argument("--config", type=str, default="../configs/ele_machine.yaml", help="Path to system-chemistry config (see configs/ele_machine.yaml)")
     args = parser.parse_args()
 
     # Define parameters
@@ -29,6 +31,7 @@ def main():
     T = args.T
     conc = args.conc
     Li_id = Li_index+1
+    cfg = load_system_config(args.config)
 
     # File paths
     lmp_file = f"{base_path}/01_IDNR/lammps.{T}K.prod.mtd.lammpstrj"
@@ -40,14 +43,17 @@ def main():
     analyzer = EnergyCorrectionAnalyzer(base_path, nstrides, data_file, traj_list, T)
 
     # Load SeaUrchin object
-    obj = SeaUrchin(f"{base_path}/urchin_LiClOH_{nstrides}.pkl")
+    obj = SeaUrchin(f"{base_path}/urchin_{cfg['system_tag']}_{nstrides}.pkl")
 
     # Load and process data
     df = pd.read_csv("./clu_analysis_sorted.csv", index_col=0).reset_index(drop=True)
     u_list = [mda.Universe(data_file, traj) for traj in traj_list]
 
     # Calculate free water mole fraction
-    x_free_water_all_list = analyzer.calculate_free_water_fraction(u_list, distance_range=range(12,13), Li_id=Li_id, O_radii=O_radii, H_radii=H_radii)
+    x_free_water_all_list = analyzer.calculate_free_water_fraction(
+        u_list, distance_range=range(12, 13), Li_id=Li_id, O_radii=O_radii, H_radii=H_radii,
+        lammps_atom_types=cfg["lammps_atom_types"],
+    )
 
     # Correct free energy
     df_corrected_sorted = analyzer.correct_free_energy(df, x_free_water_all_list, conc=conc)

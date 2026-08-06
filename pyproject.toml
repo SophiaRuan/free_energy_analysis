@@ -27,6 +27,7 @@ dependencies = [
   "tqdm",
   "pycolvars",
   "solvation_analysis",
+  "pyyaml",
 ]
 
 [project.optional-dependencies]

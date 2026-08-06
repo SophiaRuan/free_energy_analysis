@@ -93,10 +93,45 @@ Trajectories are expected at
 ``data/<system>/<NN_IDNR>/lammps.*.lammpstrj`` (one subdirectory per
 metadynamics replica walker). ``scripts/analysis.sh`` runs the three
 stages described above in sequence and moves the resulting plots, CSVs,
-pickles, and logs into ``data/<system>/results/``. Edit the variables at
-the top of the script (``BASE_PATH``, ``LI_INDEX``, ``NUMBER_OF_CV``,
-radii, temperature, ``SKIP_FRAMES``, etc.) for your system before
-running.
+pickles, and logs into ``data/<system>/results/``.
+
+Every variable ``analysis.sh`` uses (``BASE_PATH``, ``CONC``, ``TEMP``,
+``NUMBER_OF_CV``, radii, ``SKIP_FRAMES``, etc.) can be overridden from the
+environment instead of editing the file, e.g.:
+
+.. code-block:: bash
+
+   CONC=2 TEMP=298 ./analysis.sh
+
+``LI_INDEX`` (the LAMMPS index of the tagged/biased ion) does *not* need to
+be set — it's auto-derived from the ``group1 { atomNumbers N }`` entry
+already present in that system's own ``colvar.lmp``, which records the
+same atom used to bias the metadynamics run. Set it explicitly only if you
+need to override that.
+
+To run several concentrations/temperatures in one go, use
+``scripts/sweep_analysis.sh``, which calls ``analysis.sh`` once per
+``data/LiCl_<CONC>M_<TEMP>K`` directory that actually exists, skipping the
+rest.
+
+**Adapting to a different salt or solute.** The parts of the pipeline
+that depend on *which chemical system* you're analyzing — not just which
+concentration/temperature — live in ``configs/ele_machine.yaml``, not in
+the scripts: the solute reference atom, the coordination-environment
+species, and the LAMMPS numeric atom-type mapping used to pick out water
+vs. salt in the finite-size correction. To analyze a non-LiCl system, copy
+that file, edit its values for your chemistry, and pass
+``--config path/to/your_system.yaml`` to
+``free_energy_analysis_script.py`` / ``free_energy_correction_script.py``
+(or set it as the default in ``analysis.sh``) — no changes to ``src/`` are
+needed for this part. One piece is *not* config-driven: the water-activity
+and solubility values in ``free_energy_tool.py``'s
+``get_activity_from_conc`` are fit to LiCl(aq) experimental data from the
+paper (Sec. II.A.4) at 283/298/313 K. A different salt or temperature
+needs its own experimentally-derived fit added to
+``EnergyCorrectionAnalyzer._ACTIVITY_FIT_BY_TEMPERATURE`` — the code
+raises a clear ``ValueError`` naming what's missing if you run the
+correction stage without one.
 
 **Linux — verified working (e.g. HPC clusters like SDSC Expanse)**
 
@@ -158,7 +193,8 @@ should hold across Linux distros).
   There's no universal default; it depends on your simulation's
   equilibration time.
 * ``free_energy_analysis_script.py`` caches its clustering result at
-  ``<base_path>/urchin_LiClOH_<nstrides>.pkl`` and skips recomputation if
+  ``<base_path>/urchin_<system_tag>_<nstrides>.pkl`` (``system_tag`` comes
+  from the config file, ``LiClOH`` by default) and skips recomputation if
   that file already exists — delete it before rerunning with a different
   ``SKIP_FRAMES`` or ``NSTRIDES``, or the run will silently reuse stale
   results.
@@ -170,8 +206,10 @@ Same general approach as Linux should apply.
 (Apple Silicon), so it's more likely to solve directly there than on
 Linux; if it doesn't, fall back to the minimal-env + ``pip install -e .``
 steps above (skip the Miniforge download if you already have
-conda/mamba). Adjust the conda source path in ``analysis.sh`` to match
-your local install (e.g. ``~/miniconda3/etc/profile.d/conda.sh``).
+conda/mamba). ``analysis.sh`` auto-detects and sources ``conda.sh`` from
+common install locations (miniforge3, miniconda3, anaconda3, mambaforge
+under your home directory); if yours lives elsewhere, source it yourself
+before running the script.
 
 **Windows — not verified by us, best-effort guidance**
 

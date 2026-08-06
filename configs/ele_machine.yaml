@@ -1,9 +1,36 @@
-# configuration file for electrolyte machine to extract structures
-trajectory: "traj.lammpstrj"
-topology: "data.lammps"
-solute_atoms: ["Li"]
-solvent_atoms: ["O", "H"]
-cv_type: "coordination"
-bias_format: "colvars"
-temperature: 300
-# cluster_method: "dbscan"
+# System-chemistry definition consumed by free_energy_analysis_script.py and
+# free_energy_correction_script.py. One file per salt/solvent combination —
+# concentration, temperature, and replica-specific values (Li_index, etc.)
+# stay in analysis.sh / sweep_analysis.sh since those vary per state point,
+# not per chemistry. To analyze a different salt, copy this file and edit
+# the values below; nothing in scripts/ or src/ needs to change.
+#
+# NOTE: the water-activity/solubility values used by the finite-size
+# chemical-potential correction (free_energy_tool.py: get_activity_from_conc)
+# are NOT here — they're fit to LiCl(aq) experimental data from the paper
+# and are not generalizable by config alone. A different salt needs its own
+# activity-vs-concentration fit supplied in code.
+
+# Short tag used in cached/output filenames, e.g. urchin_<system_tag>_<nstrides>.pkl
+system_tag: "LiClOH"
+
+# The single tracked/biased solute ion (SeaUrchin ref_atom).
+solute_ref_atom: "Li"
+
+# All species considered part of the local coordination environment
+# (SeaUrchin coord_env) — must include solute_ref_atom.
+coord_env: ["O", "H", "Cl", "Li"]
+
+# Element symbols for the two non-solute cluster-extraction cutoffs
+# (--O_radii/--Cl_radii on free_energy_analysis_script.py map onto these).
+water_o_symbol: "O"
+anion_symbol: "Cl"
+
+# LAMMPS numeric atom types (see data.lammps "Masses" section) for the
+# water and salt species, used to select free water in the finite-size
+# correction (free_energy_correction_script.py).
+lammps_atom_types:
+  water_o: 1
+  water_h: 2
+  cation: 3
+  anion: 4
