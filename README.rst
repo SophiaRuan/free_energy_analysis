@@ -124,6 +124,17 @@ at their own electrolyte systems, not just reproduce the paper's LiCl run.
 * The number of metadynamics replica walkers is discovered from the
   ``*_IDNR`` directories actually on disk instead of being hardcoded to
   10 — a different walker count no longer requires a code change.
+* CLI flags on ``free_energy_analysis_script.py`` /
+  ``free_energy_correction_script.py`` were renamed to generic terms —
+  ``--solute_index``, ``--water_o_radii``, ``--water_h_radii``,
+  ``--anion_radii`` — instead of ``--Li_index``/``--O_radii``/
+  ``--H_radii``/``--Cl_radii``. The old names still work as deprecated
+  aliases (same ``dest``), so nothing already calling this package breaks.
+* Fixed a real (not just cosmetic) bug: ``ColvarsAnalyzer``'s CV-histogram
+  plot always titled itself ``"Li-O CN and Li-Cl CN Histogram"`` regardless
+  of the ``cv_labels`` you passed it — so even a correctly-configured
+  non-LiCl run produced a mislabeled plot. It now builds the title from
+  the actual labels in use.
 * Cross-platform install docs (verified Linux/HPC path, best-effort
   macOS/Windows guidance, a memory-constrained install path for capped HPC
   login nodes) and a portable conda-activation fallback that checks for
@@ -141,9 +152,6 @@ at their own electrolyte systems, not just reproduce the paper's LiCl run.
   different salt's numbers now exists (see above), but the actual
   experimentally-derived values for another system have to come from you,
   not from this codebase.
-* The ``--O_radii``/``--H_radii``/``--Cl_radii`` CLI flag *names* still
-  read LiCl-specific, even though what they map onto is config-driven
-  underneath.
 * ``src/free_energy_analysis/solvation_analysis_tool.py`` is dead code
   (nothing imports it) and hasn't been touched either way.
 

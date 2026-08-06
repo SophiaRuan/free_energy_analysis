@@ -52,9 +52,9 @@ fi
 conda activate ele_machine # your environment name
 python colvars_analyzer_script.py --base_dir $BASE_PATH --number_of_cv $NUMBER_OF_CV &> colvars_analysis.log
 echo "Colvars analysis completed!"
-python free_energy_analysis_script.py --base_path $BASE_PATH --skip_frames $SKIP_FRAMES --nstrides $NSTRIDES --O_radii $O_RADII --Cl_radii $CL_RADII --Li_index $LI_INDEX --T $TEMP &> free_energy_analysis.log
+python free_energy_analysis_script.py --base_path $BASE_PATH --skip_frames $SKIP_FRAMES --nstrides $NSTRIDES --water_o_radii $O_RADII --anion_radii $CL_RADII --solute_index $LI_INDEX --T $TEMP &> free_energy_analysis.log
 echo "Free energy analysis completed!"
-python free_energy_correction_script.py --base_path $BASE_PATH --nstrides $NSTRIDES --O_radii $O_RADII --H_radii $H_RADII --Cl_radii $CL_RADII --Li_index $LI_INDEX --T $TEMP --conc $CONC &> energy_correction_analysis.log
+python free_energy_correction_script.py --base_path $BASE_PATH --nstrides $NSTRIDES --water_o_radii $O_RADII --water_h_radii $H_RADII --anion_radii $CL_RADII --solute_index $LI_INDEX --T $TEMP --conc $CONC &> energy_correction_analysis.log
 echo "Free energy correction completed!"
 RESULTS_DIR="${BASE_PATH}/results"
 mkdir -p ${RESULTS_DIR}

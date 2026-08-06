@@ -169,7 +169,7 @@ class ColvarsAnalyzer:
             axes[i].legend()
             axes[i].grid(True)
 
-        figs.suptitle("Li-O CN and Li-Cl CN Histogram", fontsize=20)
+        figs.suptitle(f"{', '.join(self.cv_labels)} Histogram", fontsize=20)
         plt.tight_layout()
         figs.savefig("CV_Histograms.png", bbox_inches="tight")
         plt.close()

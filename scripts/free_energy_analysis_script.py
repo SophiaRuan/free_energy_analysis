@@ -11,9 +11,9 @@ def main():
     parser.add_argument("--base_path", type=str, required=True, help="Base directory path")
     parser.add_argument("--skip_frames", type=int, required=True, help="Number of frames skipped")
     parser.add_argument("--nstrides", type=int, required=True, help="Number of strides")
-    parser.add_argument("--O_radii", type=float, required=True, help="Radius for oxygen")
-    parser.add_argument("--Cl_radii", type=float, required=True, help="Radius for chlorine")
-    parser.add_argument("--Li_index", type=int, required=True, help="Index of lithium")
+    parser.add_argument("--water_o_radii", "--O_radii", dest="water_o_radii", type=float, required=True, help="Radius for the water-oxygen cluster-extraction cutoff (--O_radii is a deprecated alias)")
+    parser.add_argument("--anion_radii", "--Cl_radii", dest="anion_radii", type=float, required=True, help="Radius for the anion cluster-extraction cutoff (--Cl_radii is a deprecated alias)")
+    parser.add_argument("--solute_index", "--Li_index", dest="solute_index", type=int, required=True, help="Index of the tagged solute ion (--Li_index is a deprecated alias)")
     parser.add_argument("--T", type=int, required=True, help="Temperature in Kelvin")
     parser.add_argument("--config", type=str, default="../configs/ele_machine.yaml", help="Path to system-chemistry config (see configs/ele_machine.yaml)")
     args = parser.parse_args()
@@ -22,9 +22,9 @@ def main():
     base_path = args.base_path
     skip_frames = args.skip_frames
     nstrides = args.nstrides
-    O_radii = args.O_radii
-    Cl_radii = args.Cl_radii
-    Li_index = args.Li_index
+    O_radii = args.water_o_radii
+    Cl_radii = args.anion_radii
+    Li_index = args.solute_index
     T = args.T
     cfg = load_system_config(args.config)
 
