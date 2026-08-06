@@ -5,7 +5,9 @@ import pytest
 
 from free_energy_analysis.config import load_system_config
 
-REPO_CONFIG = str(Path(__file__).resolve().parent.parent / "configs" / "ele_machine.yaml")
+CONFIGS_DIR = Path(__file__).resolve().parent.parent / "configs"
+REPO_CONFIG = str(CONFIGS_DIR / "ele_machine.yaml")
+EXAMPLE_NEW_SALT_CONFIG = str(CONFIGS_DIR / "example_new_salt.yaml")
 
 VALID_CONFIG = """
 system_tag: "LiClOH"
@@ -27,6 +29,15 @@ def test_loads_the_real_repo_config():
     assert cfg["solute_ref_atom"] == "Li"
     assert cfg["coord_env"] == ["O", "H", "Cl", "Li"]
     assert cfg["lammps_atom_types"] == {"water_o": 1, "water_h": 2, "cation": 3, "anion": 4}
+
+
+def test_loads_the_example_new_salt_template():
+    # Guards against the documented "how to add a new salt" example
+    # drifting out of sync with what load_system_config actually requires.
+    cfg = load_system_config(EXAMPLE_NEW_SALT_CONFIG)
+    assert cfg["system_tag"] == "NaClOH"
+    assert cfg["solute_ref_atom"] == "Na"
+    assert "activity_fit" not in cfg  # commented out on purpose - placeholder only
 
 
 def test_loads_a_well_formed_config(tmp_path):

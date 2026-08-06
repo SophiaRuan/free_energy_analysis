@@ -297,12 +297,21 @@ def logsumexp(x):
 
 
 class EnergyCorrectionAnalyzer():
-    def __init__(self, base_path, nstrides, data_file, traj_list, T):
+    def __init__(self, base_path, nstrides, data_file, traj_list, T, activity_fit=None):
+        """
+        activity_fit: optional {T: {"slope":, "intercept":, "solubility":}}
+        water-activity-vs-concentration table, normally supplied via a
+        system config's `activity_fit` section (see configs/ele_machine.yaml).
+        Defaults to this package's built-in LiCl(aq) fit if not given. Kept
+        per-instance (not a single shared table) so two different salts that
+        happen to share a temperature can't silently collide.
+        """
         self.base_path = base_path
         self.nstrides = nstrides
         self.data_file = data_file
         self.traj_list = traj_list
         self.T = T
+        self.activity_fit = activity_fit or self._DEFAULT_ACTIVITY_FIT_BY_TEMPERATURE
 
     @staticmethod
     def count_oxygen_atoms(formula):
@@ -356,11 +365,14 @@ class EnergyCorrectionAnalyzer():
 
         return x_free_water_all_list
 
-    # Water-activity-vs-concentration fits and solubility limits, from LiCl(aq)
-    # experimental data (see paper Sec. II.A.4). Not config-driven: a
-    # different salt needs its own fit added here, since these numbers come
-    # from experiment, not from the simulation.
-    _ACTIVITY_FIT_BY_TEMPERATURE = {
+    # Built-in fallback used when a system's config doesn't supply its own
+    # activity_fit: water-activity-vs-concentration fits and solubility
+    # limits from LiCl(aq) experimental data (see paper Sec. II.A.4). A
+    # different salt needs its own fit from real experimental data - add an
+    # `activity_fit` section to that system's config.yaml (see
+    # configs/ele_machine.yaml) rather than editing this table, so two
+    # salts' numbers can never collide under the same class-level table.
+    _DEFAULT_ACTIVITY_FIT_BY_TEMPERATURE = {
         298: {"slope": -0.0444, "intercept": 1.0014, "solubility": 20},
         283: {"slope": -0.0507, "intercept": 1.0, "solubility": 17.5},
         313: {"slope": -0.0422, "intercept": 1.0, "solubility": 21},
@@ -369,13 +381,15 @@ class EnergyCorrectionAnalyzer():
     def get_activity_from_conc(self, conc):
         T = self.T
         try:
-            fit = self._ACTIVITY_FIT_BY_TEMPERATURE[T]
+            fit = self.activity_fit[T]
         except KeyError:
             raise ValueError(
                 f"No water-activity fit for T={T}K. Fits are only defined for "
-                f"{sorted(self._ACTIVITY_FIT_BY_TEMPERATURE)}K (LiCl(aq), see paper Sec. II.A.4). "
-                "Add a slope/intercept/solubility entry to _ACTIVITY_FIT_BY_TEMPERATURE "
-                "for this temperature (or salt) before running the correction at this T."
+                f"{sorted(self.activity_fit)}K. Add a slope/intercept/solubility "
+                "entry for this temperature to this system's config.yaml "
+                "activity_fit section (see configs/ele_machine.yaml) - these are "
+                "experimentally-derived numbers, not something derivable from the "
+                "simulation itself."
             )
         conc_for_fit = min(conc, fit["solubility"])
         return fit["slope"] * conc_for_fit + fit["intercept"]

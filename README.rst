@@ -110,25 +110,37 @@ at their own electrolyte systems, not just reproduce the paper's LiCl run.
   used by the finite-size correction moved out of hardcoded Python
   (``"Li"``, ``"Cl"``, ``type 1``–``type 4``) and into
   ``configs/ele_machine.yaml``, loaded through a new ``config.py``. A new
-  salt/solvent combination is a new config file, not a source-code edit.
+  salt/solvent combination is a new config file, not a source-code edit —
+  see ``configs/example_new_salt.yaml`` for a worked (placeholder-data)
+  template.
+* The water-activity/solubility fit used by the finite-size correction is
+  now read per-system from that system's own config (an optional
+  ``activity_fit`` section), instead of one shared table in Python code —
+  so two different salts that happen to share a temperature can't
+  silently collide and get the wrong numbers. Configs that omit it (like
+  the default ``ele_machine.yaml``) fall back to this package's built-in
+  LiCl(aq) fit; the code raises a clear error if a run needs a
+  temperature that's configured nowhere.
+* The number of metadynamics replica walkers is discovered from the
+  ``*_IDNR`` directories actually on disk instead of being hardcoded to
+  10 — a different walker count no longer requires a code change.
 * Cross-platform install docs (verified Linux/HPC path, best-effort
   macOS/Windows guidance, a memory-constrained install path for capped HPC
   login nodes) and a portable conda-activation fallback that checks for
   the actual ``conda activate`` shell function rather than assuming one
   specific install path or that the binary alone being on ``PATH`` is
   sufficient.
-* A real, passing pytest suite for the pieces above that don't require HPC
-  trajectory data to test — the original test file imported a module that
-  never existed in this package and had never actually run.
+* A real, passing pytest suite (27 tests) for the pieces above that don't
+  require HPC trajectory data to test — the original test file imported a
+  module that never existed in this package and had never actually run.
 
 **What's intentionally not generalized (yet)**
 
-* The water-activity/solubility values used in the finite-size correction
-  (``EnergyCorrectionAnalyzer._ACTIVITY_FIT_BY_TEMPERATURE``) are
-  experimentally-fit numbers for LiCl(aq) at 283/298/313 K from the paper
-  — a different salt or temperature needs its own fit from real
-  experimental data, not a config change. Running the correction stage
-  without one now raises a clear error instead of failing silently.
+* The water-activity/solubility *numbers* themselves are still only
+  populated for LiCl(aq) at 283/298/313 K — the mechanism to supply a
+  different salt's numbers now exists (see above), but the actual
+  experimentally-derived values for another system have to come from you,
+  not from this codebase.
 * The ``--O_radii``/``--H_radii``/``--Cl_radii`` CLI flag *names* still
   read LiCl-specific, even though what they map onto is config-driven
   underneath.
@@ -172,18 +184,24 @@ concentration/temperature — live in ``configs/ele_machine.yaml``, not in
 the scripts: the solute reference atom, the coordination-environment
 species, and the LAMMPS numeric atom-type mapping used to pick out water
 vs. salt in the finite-size correction. To analyze a non-LiCl system, copy
-that file, edit its values for your chemistry, and pass
-``--config path/to/your_system.yaml`` to
+that file (``configs/example_new_salt.yaml`` is a worked, clearly-marked
+placeholder-data template to start from), edit its values for your
+chemistry, and pass ``--config path/to/your_system.yaml`` to
 ``free_energy_analysis_script.py`` / ``free_energy_correction_script.py``
 (or set it as the default in ``analysis.sh``) — no changes to ``src/`` are
-needed for this part. One piece is *not* config-driven: the water-activity
-and solubility values in ``free_energy_tool.py``'s
-``get_activity_from_conc`` are fit to LiCl(aq) experimental data from the
-paper (Sec. II.A.4) at 283/298/313 K. A different salt or temperature
-needs its own experimentally-derived fit added to
-``EnergyCorrectionAnalyzer._ACTIVITY_FIT_BY_TEMPERATURE`` — the code
-raises a clear ``ValueError`` naming what's missing if you run the
-correction stage without one.
+needed for this part.
+
+The water-activity/solubility fit used by the finite-size correction
+(Sec. II.A.4 of the paper) can also be supplied per-system, via an
+optional ``activity_fit`` section in that same config file — see the
+commented-out example in ``configs/ele_machine.yaml``. Leave it out and
+the correction falls back to this package's built-in LiCl(aq) fit
+(283/298/313 K). Either way, these are **experimentally-measured**
+numbers (e.g. from published water-activity tables), not something this
+tool can derive from your simulation — a different salt or temperature
+needs its own real data, and the code raises a clear ``ValueError``
+naming what's missing if you run the correction stage without any fit
+available for that temperature.
 
 **Linux — verified working (e.g. HPC clusters like SDSC Expanse)**
 

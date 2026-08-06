@@ -4,12 +4,8 @@
 # stay in analysis.sh / sweep_analysis.sh since those vary per state point,
 # not per chemistry. To analyze a different salt, copy this file and edit
 # the values below; nothing in scripts/ or src/ needs to change.
-#
-# NOTE: the water-activity/solubility values used by the finite-size
-# chemical-potential correction (free_energy_tool.py: get_activity_from_conc)
-# are NOT here — they're fit to LiCl(aq) experimental data from the paper
-# and are not generalizable by config alone. A different salt needs its own
-# activity-vs-concentration fit supplied in code.
+# See configs/example_new_salt.yaml for a worked (placeholder-data) example
+# of adapting this to a different system.
 
 # Short tag used in cached/output filenames, e.g. urchin_<system_tag>_<nstrides>.pkl
 system_tag: "LiClOH"
@@ -34,3 +30,16 @@ lammps_atom_types:
   water_h: 2
   cation: 3
   anion: 4
+
+# Optional. Water-activity-vs-concentration fit and solubility limit per
+# temperature (K), used by the finite-size chemical-potential correction
+# (Eqs. 6-9 of the paper: activity = slope*conc + intercept, clamped at
+# `solubility`). These are EXPERIMENTAL numbers, not something derivable
+# from the simulation - omit this section to fall back to this package's
+# built-in LiCl(aq) fit (283/298/313 K, from the paper's Sec. II.A.4), which
+# is what this default config does. A different salt/temperature needs its
+# own real experimentally-derived numbers here; the correction stage raises
+# a clear error if it hits a temperature with no fit available either way.
+#
+# activity_fit:
+#   298: {slope: -0.0444, intercept: 1.0014, solubility: 20}

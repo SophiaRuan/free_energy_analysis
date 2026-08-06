@@ -39,8 +39,9 @@ def main():
     traj_list = glob.glob("*_IDNR/*lammpsdump")
 
 
-    # Initialize analyzer
-    analyzer = EnergyCorrectionAnalyzer(base_path, nstrides, data_file, traj_list, T)
+    # Initialize analyzer (activity_fit is optional in the config; None
+    # falls back to this package's built-in LiCl(aq) fit)
+    analyzer = EnergyCorrectionAnalyzer(base_path, nstrides, data_file, traj_list, T, activity_fit=cfg.get("activity_fit"))
 
     # Load SeaUrchin object
     obj = SeaUrchin(f"{base_path}/urchin_{cfg['system_tag']}_{nstrides}.pkl")
