@@ -18,7 +18,16 @@ classifiers = [
 ]
 license = {text = "MIT license"}
 dependencies = [
-  "typer"
+  "typer",
+  "rich",
+  "scipy",
+  "matplotlib",
+  "pandas",
+  "MDAnalysis",
+  "tqdm",
+  "pycolvars",
+  "solvation_analysis",
+  "pyyaml",
 ]
 
 [project.optional-dependencies]

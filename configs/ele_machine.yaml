@@ -1,9 +1,45 @@
-# configuration file for electrolyte machine to extract structures
-trajectory: "traj.lammpstrj"
-topology: "data.lammps"
-solute_atoms: ["Li"]
-solvent_atoms: ["O", "H"]
-cv_type: "coordination"
-bias_format: "colvars"
-temperature: 300
-# cluster_method: "dbscan"
+# System-chemistry definition consumed by free_energy_analysis_script.py and
+# free_energy_correction_script.py. One file per salt/solvent combination —
+# concentration, temperature, and replica-specific values (Li_index, etc.)
+# stay in analysis.sh / sweep_analysis.sh since those vary per state point,
+# not per chemistry. To analyze a different salt, copy this file and edit
+# the values below; nothing in scripts/ or src/ needs to change.
+# See configs/example_new_salt.yaml for a worked (placeholder-data) example
+# of adapting this to a different system.
+
+# Short tag used in cached/output filenames, e.g. urchin_<system_tag>_<nstrides>.pkl
+system_tag: "LiClOH"
+
+# The single tracked/biased solute ion (SeaUrchin ref_atom).
+solute_ref_atom: "Li"
+
+# All species considered part of the local coordination environment
+# (SeaUrchin coord_env) — must include solute_ref_atom.
+coord_env: ["O", "H", "Cl", "Li"]
+
+# Element symbols for the two non-solute cluster-extraction cutoffs
+# (--O_radii/--Cl_radii on free_energy_analysis_script.py map onto these).
+water_o_symbol: "O"
+anion_symbol: "Cl"
+
+# LAMMPS numeric atom types (see data.lammps "Masses" section) for the
+# water and salt species, used to select free water in the finite-size
+# correction (free_energy_correction_script.py).
+lammps_atom_types:
+  water_o: 1
+  water_h: 2
+  cation: 3
+  anion: 4
+
+# Optional. Water-activity-vs-concentration fit and solubility limit per
+# temperature (K), used by the finite-size chemical-potential correction
+# (Eqs. 6-9 of the paper: activity = slope*conc + intercept, clamped at
+# `solubility`). These are EXPERIMENTAL numbers, not something derivable
+# from the simulation - omit this section to fall back to this package's
+# built-in LiCl(aq) fit (283/298/313 K, from the paper's Sec. II.A.4), which
+# is what this default config does. A different salt/temperature needs its
+# own real experimentally-derived numbers here; the correction stage raises
+# a clear error if it hits a temperature with no fit available either way.
+#
+# activity_fit:
+#   298: {slope: -0.0444, intercept: 1.0014, solubility: 20}

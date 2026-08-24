@@ -1,0 +1,43 @@
+# TEMPLATE — illustrates how to adapt configs/ele_machine.yaml to a
+# different salt/solvent system. This is NOT a real, validated system: the
+# atom-type numbers, radii references, and especially the activity_fit
+# block below are PLACEHOLDER values to show the shape of the file, not
+# real experimental or simulation data for NaCl(aq) or any other system.
+# Do not use this file's numbers for an actual run — replace every value
+# with your own system's real numbers first.
+#
+# Worked example: hypothetical NaCl(aq), single tagged Na+ ion, same
+# water model (SPC/E) and simulation setup style as the LiCl(aq) systems
+# this package was built for.
+
+system_tag: "NaClOH"
+
+# The single tracked/biased solute ion (SeaUrchin ref_atom).
+solute_ref_atom: "Na"
+
+# All species considered part of the local coordination environment
+# (SeaUrchin coord_env) — must include solute_ref_atom.
+coord_env: ["O", "H", "Cl", "Na"]
+
+# Element symbols for the two non-solute cluster-extraction cutoffs
+# (--O_radii/--Cl_radii on free_energy_analysis_script.py map onto these).
+water_o_symbol: "O"
+anion_symbol: "Cl"
+
+# PLACEHOLDER — LAMMPS numeric atom types depend entirely on how your own
+# data.lammps was built (check its "Masses" section); these are just
+# illustrative, copied from the LiCl(aq) numbering.
+lammps_atom_types:
+  water_o: 1
+  water_h: 2
+  cation: 3
+  anion: 4
+
+# PLACEHOLDER — these are NOT real NaCl(aq) water-activity data. A real
+# config needs slope/intercept fit to actual experimental water-activity
+# measurements for your salt (e.g. from a source like Fontana's "Water
+# activity of saturated salt solutions" table, the same kind of reference
+# the paper used for LiCl), not numbers copied from another salt.
+#
+# activity_fit:
+#   298: {slope: 0.0, intercept: 1.0, solubility: 1}

@@ -2,6 +2,7 @@ import argparse
 import os
 import matplotlib.pyplot as plt
 from sea_urchin.sea_urchin import SeaUrchin
+from free_energy_analysis.config import load_system_config
 from free_energy_analysis.free_energy_tool import ClusterAnalyzer, get_multiple_replica_files, load_bias_potential_data, plot_structures
 
 def main():
@@ -10,36 +11,45 @@ def main():
     parser.add_argument("--base_path", type=str, required=True, help="Base directory path")
     parser.add_argument("--skip_frames", type=int, required=True, help="Number of frames skipped")
     parser.add_argument("--nstrides", type=int, required=True, help="Number of strides")
-    parser.add_argument("--O_radii", type=float, required=True, help="Radius for oxygen")
-    parser.add_argument("--Cl_radii", type=float, required=True, help="Radius for chlorine")
-    parser.add_argument("--Li_index", type=int, required=True, help="Index of lithium")
+    parser.add_argument("--water_o_radii", "--O_radii", dest="water_o_radii", type=float, required=True, help="Radius for the water-oxygen cluster-extraction cutoff (--O_radii is a deprecated alias)")
+    parser.add_argument("--anion_radii", "--Cl_radii", dest="anion_radii", type=float, required=True, help="Radius for the anion cluster-extraction cutoff (--Cl_radii is a deprecated alias)")
+    parser.add_argument("--solute_index", "--Li_index", dest="solute_index", type=int, required=True, help="Index of the tagged solute ion (--Li_index is a deprecated alias)")
     parser.add_argument("--T", type=int, required=True, help="Temperature in Kelvin")
+    parser.add_argument("--config", type=str, default="../configs/ele_machine.yaml", help="Path to system-chemistry config (see configs/ele_machine.yaml)")
     args = parser.parse_args()
 
     # Define parameters
     base_path = args.base_path
     skip_frames = args.skip_frames
     nstrides = args.nstrides
-    O_radii = args.O_radii
-    Cl_radii = args.Cl_radii
-    Li_index = args.Li_index
+    O_radii = args.water_o_radii
+    Cl_radii = args.anion_radii
+    Li_index = args.solute_index
     T = args.T
+    cfg = load_system_config(args.config)
 
     # File paths
     lmp_file = f"{base_path}/01_IDNR/lammps.{T}K.prod.mtd.lammpstrj"
     bgf_file = "data.lammps"
-    cluster_file = f"{base_path}/urchin_LiClOH_{nstrides}.pkl"
+    cluster_file = f"{base_path}/urchin_{cfg['system_tag']}_{nstrides}.pkl"
 
     if not os.path.isfile(cluster_file):
         # Cutoff distances
         cutoff_dist = {
-            "O": O_radii,
-            "Cl": Cl_radii,
+            cfg["water_o_symbol"]: O_radii,
+            cfg["anion_symbol"]: Cl_radii,
         }
 
-        # Reconstruction settings
+        # Reconstruction settings. sea_urchin keys reconstruct["type"] by
+        # LAMMPS numeric atom type (see su_cluster.find_neighbors) - any
+        # neighbor atom of this type gets its whole connected molecule
+        # pulled into the cluster. This must be the water-oxygen type from
+        # this system's own config, not a literal 1: a system where water_o
+        # isn't type 1 would otherwise silently get NO molecule
+        # reconstruction at all (sea_urchin swallows the KeyError and
+        # treats it as "nothing to reconstruct", with no error raised).
         reconstruct = {
-            "type": {1: "molecules"},
+            "type": {cfg["lammps_atom_types"]["water_o"]: "molecules"},
             "depth": 1,
             "inverse": False,
             "merge": True,
@@ -49,21 +59,21 @@ def main():
         obj = SeaUrchin(
             lmp_file,
             bgf_file=bgf_file,
-            ref_atom="Li",
-            coord_env=["O", "H", "Cl", "Li"],
+            ref_atom=cfg["solute_ref_atom"],
+            coord_env=cfg["coord_env"],
             cutoff_dist=cutoff_dist,
             parallel=True,
             multiple_replica=base_path,
             skip_frames=skip_frames,
             nstrides=nstrides,
-            save_name=f"urchin_LiClOH_{nstrides}.pkl",
+            save_name=f"urchin_{cfg['system_tag']}_{nstrides}.pkl",
             reconstruct=reconstruct,
             free_energy=False,
             save=True,
         )
 
     # Reload SeaUrchin object
-    obj = SeaUrchin(f"{base_path}/urchin_LiClOH_{nstrides}.pkl")
+    obj = SeaUrchin(cluster_file)
 
     # Filter clusters containing the target Li atom
     clu_list = [clu for clu in obj.clusters if Li_index in clu.info["ori_idx"]]

@@ -3,6 +3,7 @@ import glob
 import pandas as pd
 
 from sea_urchin.sea_urchin import SeaUrchin
+from free_energy_analysis.config import load_system_config
 from free_energy_analysis.free_energy_tool import EnergyCorrectionAnalyzer
 
 import MDAnalysis as mda
@@ -11,24 +12,26 @@ def main():
     parser = argparse.ArgumentParser(description="Cluster analysis for solvation structures.")
     parser.add_argument("--base_path", type=str, required=True, help="Base directory path")
     parser.add_argument("--nstrides", type=int, required=True, help="Number of strides")
-    parser.add_argument("--O_radii", type=float, required=True, help="Radius for oxygen")
-    parser.add_argument("--H_radii", type=float, required=True, help="Radius for hydrogen")
-    parser.add_argument("--Cl_radii", type=float, required=True, help="Radius for chlorine")
-    parser.add_argument("--Li_index", type=int, required=True, help="Index of lithium")
+    parser.add_argument("--water_o_radii", "--O_radii", dest="water_o_radii", type=float, required=True, help="Radius for the water-oxygen free-water cutoff (--O_radii is a deprecated alias)")
+    parser.add_argument("--water_h_radii", "--H_radii", dest="water_h_radii", type=float, required=True, help="Radius for the water-hydrogen free-water cutoff (--H_radii is a deprecated alias)")
+    parser.add_argument("--anion_radii", "--Cl_radii", dest="anion_radii", type=float, required=True, help="Radius for the anion cluster-extraction cutoff (--Cl_radii is a deprecated alias)")
+    parser.add_argument("--solute_index", "--Li_index", dest="solute_index", type=int, required=True, help="Index of the tagged solute ion (--Li_index is a deprecated alias)")
     parser.add_argument("--T", type=int, required=True, help="Temperature in Kelvin")
     parser.add_argument("--conc", type=float, required=True, help="Concentration in M/L")
+    parser.add_argument("--config", type=str, default="../configs/ele_machine.yaml", help="Path to system-chemistry config (see configs/ele_machine.yaml)")
     args = parser.parse_args()
 
     # Define parameters
     base_path = args.base_path
     nstrides = args.nstrides
-    O_radii = args.O_radii
-    H_radii = args.H_radii
-    Cl_radii = args.Cl_radii
-    Li_index = args.Li_index
+    O_radii = args.water_o_radii
+    H_radii = args.water_h_radii
+    Cl_radii = args.anion_radii
+    Li_index = args.solute_index
     T = args.T
     conc = args.conc
     Li_id = Li_index+1
+    cfg = load_system_config(args.config)
 
     # File paths
     lmp_file = f"{base_path}/01_IDNR/lammps.{T}K.prod.mtd.lammpstrj"
@@ -36,18 +39,22 @@ def main():
     traj_list = glob.glob("*_IDNR/*lammpsdump")
 
 
-    # Initialize analyzer
-    analyzer = EnergyCorrectionAnalyzer(base_path, nstrides, data_file, traj_list, T)
+    # Initialize analyzer (activity_fit is optional in the config; None
+    # falls back to this package's built-in LiCl(aq) fit)
+    analyzer = EnergyCorrectionAnalyzer(base_path, nstrides, data_file, traj_list, T, activity_fit=cfg.get("activity_fit"))
 
     # Load SeaUrchin object
-    obj = SeaUrchin(f"{base_path}/urchin_LiClOH_{nstrides}.pkl")
+    obj = SeaUrchin(f"{base_path}/urchin_{cfg['system_tag']}_{nstrides}.pkl")
 
     # Load and process data
     df = pd.read_csv("./clu_analysis_sorted.csv", index_col=0).reset_index(drop=True)
     u_list = [mda.Universe(data_file, traj) for traj in traj_list]
 
     # Calculate free water mole fraction
-    x_free_water_all_list = analyzer.calculate_free_water_fraction(u_list, distance_range=range(12,13), Li_id=Li_id, O_radii=O_radii, H_radii=H_radii)
+    x_free_water_all_list = analyzer.calculate_free_water_fraction(
+        u_list, distance_range=range(12, 13), Li_id=Li_id, O_radii=O_radii, H_radii=H_radii,
+        lammps_atom_types=cfg["lammps_atom_types"],
+    )
 
     # Correct free energy
     df_corrected_sorted = analyzer.correct_free_energy(df, x_free_water_all_list, conc=conc)

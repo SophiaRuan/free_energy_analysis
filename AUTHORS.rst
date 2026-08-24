@@ -10,4 +10,5 @@ Development Lead
 Contributors
 ------------
 
-None yet. Why not be the first?
+* Mary Zhao <ruz059@ucsd.edu> — environment setup, cross-platform
+  documentation, and bug fixes

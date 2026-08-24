@@ -1,3 +1,4 @@
+import glob
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -32,7 +33,10 @@ class ColvarsAnalyzer:
         if len(self.cv_labels) != self.number_of_cv:
             raise ValueError("The length of cv_labels must match the number_of_cv.")
 
-        self.directories = [os.path.join(base_dir, f'{i:02}_IDNR') for i in range(1, 11)]
+        # Discover replica directories rather than assuming exactly 10 walkers
+        # (this repo's LiCl datasets happen to use 10, but multiple-walker
+        # metadynamics can use any number).
+        self.directories = sorted(glob.glob(os.path.join(base_dir, '*_IDNR')))
         self.pmf_files = [os.path.join(dir, "colvar.out.pmf") for dir in self.directories]
         self.colvar_files = [os.path.join(dir, "colvar.out.colvars.traj") for dir in self.directories]
 
@@ -165,7 +169,7 @@ class ColvarsAnalyzer:
             axes[i].legend()
             axes[i].grid(True)
 
-        figs.suptitle("Li-O CN and Li-Cl CN Histogram", fontsize=20)
+        figs.suptitle(f"{', '.join(self.cv_labels)} Histogram", fontsize=20)
         plt.tight_layout()
         figs.savefig("CV_Histograms.png", bbox_inches="tight")
         plt.close()
