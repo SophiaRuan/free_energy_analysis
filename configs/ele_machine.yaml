@@ -18,7 +18,11 @@ solute_ref_atom: "Li"
 coord_env: ["O", "H", "Cl", "Li"]
 
 # Element symbols for the two non-solute cluster-extraction cutoffs
-# (--O_radii/--Cl_radii on free_energy_analysis_script.py map onto these).
+# (--water_o_radii/--anion_radii on free_energy_analysis_script.py map onto
+# these). water_o_symbol does double duty as the solvent's "anchor atom"
+# for counting solvent molecules in a cluster formula (see
+# solvent_atoms_per_molecule below) - for water that's the same O atom
+# either way.
 water_o_symbol: "O"
 anion_symbol: "Cl"
 
@@ -31,6 +35,13 @@ lammps_atom_types:
   cation: 3
   anion: 4
 
+# Number of atoms per solvent molecule (water = O + 2H = 3), used by the
+# finite-size correction's free-water counting. Optional; defaults to 3
+# (water) if omitted. NOTE: changing this alone does NOT make the
+# correction valid for a non-water solvent - see the activity_fit note
+# below, this only fixes the atom-counting arithmetic.
+# solvent_atoms_per_molecule: 3
+
 # Optional. Water-activity-vs-concentration fit and solubility limit per
 # temperature (K), used by the finite-size chemical-potential correction
 # (Eqs. 6-9 of the paper: activity = slope*conc + intercept, clamped at
@@ -40,6 +51,14 @@ lammps_atom_types:
 # is what this default config does. A different salt/temperature needs its
 # own real experimentally-derived numbers here; the correction stage raises
 # a clear error if it hits a temperature with no fit available either way.
+#
+# A DIFFERENT SOLVENT (not water) is a bigger change than a different salt:
+# the mu_w = mu_w0 + kT*ln(a_w) model this whole correction is built on
+# (paper Eq. 6) is specifically a water-chemical-potential model. Swapping
+# in a different solvent needs new correction theory validated for that
+# solvent, not just new activity_fit numbers plugged into this same
+# formula - solvent_atoms_per_molecule/water_o_symbol above only get the
+# atom-counting arithmetic right, they don't validate the physics.
 #
 # activity_fit:
 #   298: {slope: -0.0444, intercept: 1.0014, solubility: 20}

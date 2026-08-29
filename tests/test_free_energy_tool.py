@@ -55,3 +55,40 @@ def test_custom_activity_fit_still_raises_for_temperature_it_lacks():
     analyzer = make_analyzer(298, activity_fit=other_salt_fit)
     with pytest.raises(ValueError, match="298"):
         analyzer.get_activity_from_conc(1.0)
+
+
+def test_init_defaults_to_water_atom_counting():
+    analyzer = EnergyCorrectionAnalyzer(
+        base_path="x", nstrides=1, data_file="x", traj_list=[], T=298,
+    )
+    assert analyzer.solvent_atoms_per_molecule == 3
+    assert analyzer.solvent_anchor_symbol == "O"
+
+
+def test_init_accepts_a_different_solvent_atom_count():
+    analyzer = EnergyCorrectionAnalyzer(
+        base_path="x", nstrides=1, data_file="x", traj_list=[], T=298,
+        solvent_atoms_per_molecule=6, solvent_anchor_symbol="N",
+    )
+    assert analyzer.solvent_atoms_per_molecule == 6
+    assert analyzer.solvent_anchor_symbol == "N"
+
+
+# Flat Hill-notation formulas (no brackets, count omitted when 1) - the
+# actual format this codebase's cluster formulas use, e.g. "H8LiO4" for
+# Li[H2O]4 (see clu_analysis_sorted.csv from a real run).
+@pytest.mark.parametrize("formula, symbol, expected", [
+    ("H2Cl2LiO", "O", 1),      # bare "O", no digit suffix -> count 1
+    ("H8LiO4", "O", 4),        # Li[H2O]4 in Hill notation
+    ("H6LiO3", "O", 3),
+    ("H12ClLi2O6", "O", 6),
+    ("LiCl3", "O", 0),         # no solvent atom in this cluster at all
+    ("N4C8H12Li", "N", 4),     # hypothetical non-water solvent anchor
+])
+def test_count_solvent_anchor_atoms(formula, symbol, expected):
+    assert EnergyCorrectionAnalyzer.count_solvent_anchor_atoms(formula, symbol) == expected
+
+
+def test_count_solvent_anchor_atoms_defaults_to_oxygen():
+    # backward-compat: calling with just a formula (no symbol) still counts O
+    assert EnergyCorrectionAnalyzer.count_solvent_anchor_atoms("H8LiO4") == 4

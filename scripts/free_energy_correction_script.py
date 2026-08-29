@@ -39,9 +39,15 @@ def main():
     traj_list = glob.glob("*_IDNR/*lammpsdump")
 
 
-    # Initialize analyzer (activity_fit is optional in the config; None
-    # falls back to this package's built-in LiCl(aq) fit)
-    analyzer = EnergyCorrectionAnalyzer(base_path, nstrides, data_file, traj_list, T, activity_fit=cfg.get("activity_fit"))
+    # Initialize analyzer. activity_fit/solvent_atoms_per_molecule are
+    # optional in the config; omitting them falls back to this package's
+    # built-in LiCl(aq)-in-water defaults.
+    analyzer = EnergyCorrectionAnalyzer(
+        base_path, nstrides, data_file, traj_list, T,
+        activity_fit=cfg.get("activity_fit"),
+        solvent_atoms_per_molecule=cfg.get("solvent_atoms_per_molecule", 3),
+        solvent_anchor_symbol=cfg.get("water_o_symbol", "O"),
+    )
 
     # Load SeaUrchin object
     obj = SeaUrchin(f"{base_path}/urchin_{cfg['system_tag']}_{nstrides}.pkl")

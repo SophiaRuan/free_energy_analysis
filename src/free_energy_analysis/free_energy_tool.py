@@ -297,7 +297,8 @@ def logsumexp(x):
 
 
 class EnergyCorrectionAnalyzer():
-    def __init__(self, base_path, nstrides, data_file, traj_list, T, activity_fit=None):
+    def __init__(self, base_path, nstrides, data_file, traj_list, T, activity_fit=None,
+                 solvent_atoms_per_molecule=3, solvent_anchor_symbol="O"):
         """
         activity_fit: optional {T: {"slope":, "intercept":, "solubility":}}
         water-activity-vs-concentration table, normally supplied via a
@@ -305,6 +306,17 @@ class EnergyCorrectionAnalyzer():
         Defaults to this package's built-in LiCl(aq) fit if not given. Kept
         per-instance (not a single shared table) so two different salts that
         happen to share a temperature can't silently collide.
+
+        solvent_atoms_per_molecule/solvent_anchor_symbol: describe the
+        solvent's own molecular structure - water's 3 atoms (O+2H) and its
+        one O atom per molecule (used as a cluster-formula counting proxy)
+        by default. IMPORTANT: these only make the atom-counting arithmetic
+        correct for a non-water solvent; the water-ACTIVITY correction
+        itself (get_activity_from_conc, and the mu_w = mu_w0 + kT*ln(a_w)
+        model behind Eq. 6-9 of the paper) is water-specific physics, not
+        something that becomes valid for another solvent just by supplying
+        different constants. Swapping the solvent needs new correction
+        theory/data from a domain scientist, not just a config edit.
         """
         self.base_path = base_path
         self.nstrides = nstrides
@@ -312,15 +324,19 @@ class EnergyCorrectionAnalyzer():
         self.traj_list = traj_list
         self.T = T
         self.activity_fit = activity_fit or self._DEFAULT_ACTIVITY_FIT_BY_TEMPERATURE
+        self.solvent_atoms_per_molecule = solvent_atoms_per_molecule
+        self.solvent_anchor_symbol = solvent_anchor_symbol
 
     @staticmethod
-    def count_oxygen_atoms(formula):
-        """Count the number of oxygen atoms in a chemical formula."""
-        oxygen_matches = re.findall(r'O(\d*)', formula)
-        oxygen_count = 0
-        for match in oxygen_matches:
-            oxygen_count += int(match) if match else 1
-        return oxygen_count
+    def count_solvent_anchor_atoms(formula, symbol="O"):
+        """Count occurrences of `symbol` in a chemical formula - used as a
+        proxy for solvent-molecule count, assuming exactly one `symbol`
+        atom per solvent molecule (true for water's O)."""
+        matches = re.findall(rf'{re.escape(symbol)}(\d*)', formula)
+        count = 0
+        for match in matches:
+            count += int(match) if match else 1
+        return count
 
     def calculate_free_water_fraction(self, u_list, distance_range=range(12, 13), Li_id=2947, O_radii=2.65, H_radii=2.95, lammps_atom_types=None):
         """Calculate the local free water mole fraction.
@@ -350,8 +366,8 @@ class EnergyCorrectionAnalyzer():
                     water_atoms = u.select_atoms(water_selection)
                     salt_atoms = u.select_atoms(salt_selection)
                     non_free_water_atoms = u.select_atoms(non_free_water_selection)
-                    non_free_water = len(non_free_water_atoms) / 3
-                    water = len(water_atoms) / 3
+                    non_free_water = len(non_free_water_atoms) / self.solvent_atoms_per_molecule
+                    water = len(water_atoms) / self.solvent_atoms_per_molecule
                     salt = len(salt_atoms) / 2
                     try:
                         x_free_water = (water - non_free_water) / (water + salt)
@@ -402,7 +418,7 @@ class EnergyCorrectionAnalyzer():
         print(f"free_water_mole_fraction={x_free_water_all_list[-1]}")
         delta_mu = np.log(x_free_water_all_list[-1] * activity / x_bulk)
         df_corrected = df.copy()
-        df_corrected["N_oxygen"] = [self.count_oxygen_atoms(f) for f in df_corrected["formula"]]
+        df_corrected["N_oxygen"] = [self.count_solvent_anchor_atoms(f, self.solvent_anchor_symbol) for f in df_corrected["formula"]]
         df_corrected["energy_corrected"] = (
             df_corrected["energy"] - np.array(df_corrected["N_oxygen"]) * delta_mu
         )

@@ -151,7 +151,17 @@ at their own electrolyte systems, not just reproduce the paper's LiCl run.
   the actual ``conda activate`` shell function rather than assuming one
   specific install path or that the binary alone being on ``PATH`` is
   sufficient.
-* A real, passing pytest suite (27 tests) for the pieces above that don't
+* First step toward supporting a solvent other than water: the finite-size
+  correction's atom-counting arithmetic hardcoded water's own molecular
+  structure in two places - dividing found atoms by ``3`` (water = O+2H)
+  to get a molecule count, and counting literal ``"O"`` characters in a
+  cluster's chemical formula as a proxy for "how many solvent molecules
+  are in this cluster." Both are now config-driven
+  (``solvent_atoms_per_molecule``, reusing ``water_o_symbol`` as the
+  counting anchor) instead of hardcoded, defaulting to water's own values.
+  **This is arithmetic only** - see below for why it doesn't make the
+  correction *valid* for a different solvent yet.
+* A real, passing pytest suite (36 tests) for the pieces above that don't
   require HPC trajectory data to test — the original test file imported a
   module that never existed in this package and had never actually run.
 
@@ -162,6 +172,16 @@ at their own electrolyte systems, not just reproduce the paper's LiCl run.
   different salt's numbers now exists (see above), but the actual
   experimentally-derived values for another system have to come from you,
   not from this codebase.
+* **A solvent other than water is a materially bigger change than a
+  different salt**, and isn't done. The finite-size correction is built on
+  a water chemical-potential model specifically (paper Eq. 6:
+  ``mu_w = mu_w0 + kT*ln(a_w)``) — the atom-counting fix above only gets
+  the arithmetic right for a differently-sized solvent molecule; it does
+  not mean the correction's underlying physics has been validated (or is
+  even applicable) for a non-water solvent. Swapping the solvent needs new
+  correction theory and/or activity data from a domain scientist, not a
+  config edit or a refactor. See the note above ``activity_fit`` in
+  ``configs/ele_machine.yaml`` for where this is documented in the code.
 * ``src/free_energy_analysis/solvation_analysis_tool.py`` is dead code
   (nothing imports it) and hasn't been touched either way.
 
